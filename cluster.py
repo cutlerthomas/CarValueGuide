@@ -12,7 +12,8 @@ from sklearn.metrics import silhouette_score
 
 
 
-N_KMEANS_CLUSTERS = 800 # 'k' in k-means or number of clusters
+N_KMEANS_CLUSTERS = 1200 # 'k' in k-means or number of clusters
+N_META_CLUSTERS = 20 # 'k' when meta clustering
 
 #index of each numeric, and categoric column
 numeric_columns = [4,15,88,89,114,115,116]
@@ -102,16 +103,16 @@ def k_means_cluster(data):
     kmeans = BisectingKMeans(n_clusters=N_KMEANS_CLUSTERS, random_state=0, n_init=12)
     labels = kmeans.fit_predict(data)
     score = silhouette_score(data, kmeans.labels_)
-    print(f"Silhouette Score (k=800): {score:.4f}")
+    print(f"Silhouette Score (k={N_KMEANS_CLUSTERS}): {score:.4f}")
     return data, kmeans, labels
 
 def k_means_meta_cluster(data):
     data_prepped = np.array(list(data.values()))
     ids = list(data.keys())
-    kmeans = BisectingKMeans(n_clusters=20, random_state=0, n_init=12)
+    kmeans = BisectingKMeans(n_clusters=N_META_CLUSTERS, random_state=0, n_init=12)
     labels = kmeans.fit_predict(data_prepped)
     score = silhouette_score(data_prepped, kmeans.labels_)
-    print(f"Silhouette Score *Meta-clusters* (k=20): {score:.4f}")
+    print(f"Silhouette Score *Meta-clusters* (k={N_META_CLUSTERS}): {score:.4f}")
     clustered_data = dict(zip(ids, labels))
     return clustered_data, kmeans, labels
 
@@ -199,7 +200,7 @@ def visualize_clusters(X_pca, labels):
         alpha=0.7
     )
 
-    ax.set_title("K-Means Clusters (k=800) in 3D PCA Space")
+    ax.set_title("K-Means Clusters (k=1200) in 3D PCA Space")
     ax.set_xlabel("PC1")
     ax.set_ylabel("PC2")
     ax.set_zlabel("PC3")

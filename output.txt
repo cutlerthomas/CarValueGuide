@@ -1,4 +1,4 @@
-Silhouette Score (k=800): 0.4504
+Silhouette Score (k=1200): 0.5484
 
 === Top features in PC1 ===
 Engine Cylinders: -0.5026
@@ -35,4 +35,4 @@ Engine Fuel Type=regular unleaded: -0.1789
 Year: 0.1498
 Vehicle Size=Compact: 0.1418
 Vehicle Style=Coupe: 0.1361
-Silhouette Score *Meta-clusters* (k=20): 0.2846
+Silhouette Score *Meta-clusters* (k=20): 0.2714
