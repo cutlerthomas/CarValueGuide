@@ -178,11 +178,12 @@ def attach_data_to_cars(full_data, groups, groups_avg_PCA):
         
     
     #output full list of cluster members and key values
+    '''
     for lbl in sorted(groups.keys(), key=lambda x: int(x)):  
         print('cluster', lbl)
         for row in groups[lbl]:
             print(row['Year'], row['Make'], row['Model'], row['MSRP'], row['P1'], row['P2'], row['P3'])
-    
+    '''
     return full_data, groups_avg_PCA
 
 def visualize_clusters(X_pca, labels):

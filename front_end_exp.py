@@ -3,8 +3,8 @@ from dash import dcc, html, Input, Output
 import plotly.express as px
 import pandas as pd
 
-# Load your CSV data
-df = pd.read_csv('final_vehicle_data.csv')  # Replace with your CSV file path
+# Load CSV data
+df = pd.read_csv('final_vehicle_data.csv')
 
 # Define which columns are categorical and which are numeric
 categorical_columns = [
@@ -38,7 +38,7 @@ numeric_filters = []
 for col in numeric_columns:
     min_val = df[col].min()
     max_val = df[col].max()
-    # A basic step calculation; you can adjust this as needed
+    # A basic step calculation; adjust this as needed
     step = (max_val - min_val) / 100 if (max_val - min_val) > 0 else 1
     slider = html.Div([
         html.Label(f"Select {col} Range:"),
@@ -66,7 +66,7 @@ app.layout = html.Div([
     # Numeric filters
     html.Div(numeric_filters, style={'display': 'flex', 'flexWrap': 'wrap'}),
     
-    # Graph area (using PCA coordinates if available)
+    # Graph area (using PCA coordinates)
     dcc.Graph(id='pca-scatter')
 ])
 
