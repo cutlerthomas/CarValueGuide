@@ -8,6 +8,6 @@ output.txt contains insights on PCA breakdown, including the weight of the most 
 
 *Function as a client - server program locally* -Done
 
-*Implemented persistent SQLAlchemy server + Python Flask server* - Done
+*Implemented persistent SQLAlchemy db + Python Flask server* - Done
 
 *Working on setting up hosting*
