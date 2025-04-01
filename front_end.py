@@ -90,14 +90,15 @@ for col in categorical_columns:
                 multi=True,
                 placeholder=f"Filter by {col}..."
             )
-        ], style={'marginBottom': '15px'})
+        ], style={'marginBottom': '15px'}, className='mb-3')
     )
 
 # Create filter components for numeric columns
 numeric_filters = []
 for col in numeric_columns:
-    min_val = df[col].min()
-    max_val = df[col].max()
+    df[col] = pd.to_numeric(df[col], errors='coerce')
+    min_val = pd.to_numeric(df[col].min(), errors='coerce')
+    max_val = pd.to_numeric(df[col].max(), errors='coerce')
     # A basic step calculation; adjust this as needed
     step = (max_val - min_val) / 100 if (max_val - min_val) > 0 else 1
     numeric_filters.append(
@@ -107,14 +108,14 @@ for col in numeric_columns:
                 id=f"{col.replace(' ', '_').lower()}-slider",
                 min=min_val,
                 max=max_val,
-                step=step,
+                step=(max_val - min_val) / 1000 if (max_val - min_val) > 0 else 1,
                 value=[min_val, max_val],
                 marks={
                     int(min_val): str(int(min_val)),
                     int(max_val): str(int(max_val))
                 }
             )
-        ], style={'marginBottom': '25px'})
+        ], style={'marginBottom': '25px'}, className='mb-4')
     )
 
 all_filters = categorical_filters + numeric_filters
@@ -202,7 +203,6 @@ app.layout = dbc.Container([
     Input("open-offcanvas", "n_clicks"),
     State("offcanvas", "is_open")
 )
-
 def toggle_offcanvas(n_clicks, is_open):
     if n_clicks:
         return not is_open
@@ -270,32 +270,33 @@ def update_graph(update_trigger, *args):
         print(f"error fetching updated data: {e}")
         updated_df = df.copy()
 
+    for col in numeric_columns:
+        updated_df[col] = pd.to_numeric(updated_df[col], errors='coerce').fillna(0)
+
     # Separate the inputs: first n are categorical, then numeric inputs follow
     num_cat = len(categorical_columns)
     cat_values = args[:num_cat]
     num_values = args[num_cat:]
     
-    filtered_df = df.copy()
-    
     # Apply filters for categorical columns
     for i, col in enumerate(categorical_columns):
         selected = cat_values[i]
         if selected and len(selected) > 0:
-            filtered_df = filtered_df[filtered_df[col].isin(selected)]
+            updated_df = updated_df[updated_df[col].isin(selected)]
     
     # Apply filters for numeric columns
     for i, col in enumerate(numeric_columns):
         slider_range = num_values[i]
         if slider_range:
-            filtered_df = filtered_df[(filtered_df[col] >= slider_range[0]) & 
-                                      (filtered_df[col] <= slider_range[1])]
+            updated_df = updated_df[(updated_df[col] >= slider_range[0]) & 
+                                      (updated_df[col] <= slider_range[1])]
             
-    filtered_df = filtered_df.reset_index()
+    updated_df = updated_df.reset_index()
     
     # Create a 3D scatter plot using PCA coordinates
-    if all(c in filtered_df.columns for c in ['P1', 'P2', 'P3']):
+    if all(c in updated_df.columns for c in ['P1', 'P2', 'P3']):
         fig = px.scatter_3d(
-            filtered_df,
+            updated_df,
             x='P1', y='P2', z='P3',
             color='meta_cluster',  # You can change the color mapping as desired
             hover_data=['Make', 'Model', 'Year', 'MSRP', 'value_score'],
@@ -306,7 +307,7 @@ def update_graph(update_trigger, *args):
     else:
         # Fallback: if PCA coordinates are not available, plot two numeric columns
         fig = px.scatter(
-            filtered_df,
+            updated_df,
             x=numeric_columns[0], y=numeric_columns[1],
             title="Scatter Plot (PCA coordinates not available)"
         )
