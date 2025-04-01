@@ -5,4 +5,5 @@ Running cluster.py w/ the cars.csv file will build the final .csv file used to p
 output.txt contains insights on PCA breakdown, including the weight of the most influential features for each x(P1), y(P2), and z(P3) axis. Contains Silhouette scores for cluster, and meta_clustering of data.
 
 *currently building ML models in order to add new cars w/ out recomputing clusters* -Done
-*will use these models to automate adding cars live* -Working on live service functionality
+*Function as a client - server program locally* -Done
+*Working on setting up hosting*

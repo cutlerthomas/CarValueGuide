@@ -130,7 +130,7 @@ def hdbscan_cluster(data):
 
 def PCA_reduction(clusters, kmeans, final_feature_names, full_data):
     labels = kmeans.labels_
-    pca = PCA(n_components=3, svd_solver="full", random_state=42)
+    pca = PCA(n_components=3, svd_solver="full", random_state=6)
     X_pca = pca.fit_transform(clusters)
 
     #print weight of 10 most influential features for each PCA axis
