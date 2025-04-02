@@ -4,16 +4,116 @@ import dash_bootstrap_components as dbc
 import plotly.express as px
 import pandas as pd
 import requests
+from requests.exceptions import RequestException
+import json
+import re
+from typing import Dict, Any, Optional
+import html as html_escape
+
+# Security configuration
+class SecurityConfig:
+    MAX_STRING_LENGTH = 80
+    MAX_NUMERIC_VALUE = 1000000
+    ALLOWED_FUEL_TYPES = {'regular unleaded', 'premium unleaded', 'diesel', 'electric'}
+    ALLOWED_TRANSMISSION_TYPES = {'AUTOMATIC', 'MANUAL'}
+    ALLOWED_DRIVEN_WHEELS = {'front wheel drive', 'rear wheel drive', 'all wheel drive', 'four wheel drive'}
+    ALLOWED_VEHICLE_SIZES = {'Compact', 'Midsize', 'Large'}
+    ALLOWED_VEHICLE_STYLES = {'Sedan', 'SUV', 'Truck', 'Van', 'Wagon', 'Coupe', 'Convertible'}
+    API_TIMEOUT = 10
+    MAX_RETRIES = 3
+
+def sanitize_input(value: str) -> str:
+    """Sanitize string input to prevent XSS attacks."""
+    if not isinstance(value, str):
+        return str(value)
+    # Remove potentially dangerous characters
+    value = re.sub(r'[<>]', '', value)
+    # Truncate to max length
+    return value[:SecurityConfig.MAX_STRING_LENGTH]
+
+def validate_numeric_input(value: float, field_name: str) -> tuple[bool, str]:
+    """Validate numeric input values."""
+    if not isinstance(value, (int, float)):
+        return False, f"{field_name} must be a number"
+    if value <= 0:
+        return False, f"{field_name} must be positive"
+    if value > SecurityConfig.MAX_NUMERIC_VALUE:
+        return False, f"{field_name} exceeds maximum allowed value"
+    return True, ""
+
+def validate_car_data(data: Dict[str, Any]) -> tuple[bool, str]:
+    """Validate car data before submission."""
+    required_fields = [
+        'Make', 'Model', 'Year', 'Engine Fuel Type', 'Engine HP', 'Engine Cylinders',
+        'Transmission Type', 'Driven_Wheels', 'Number of Doors', 'Market Category',
+        'Vehicle Size', 'Vehicle Style', 'highway MPG', 'city mpg', 'Popularity', 'MSRP'
+    ]
+    
+    # Check for missing required fields
+    missing_fields = [field for field in required_fields if field not in data]
+    if missing_fields:
+        return False, f"Missing required fields: {', '.join(missing_fields)}"
+    
+    # Sanitize string inputs
+    for field in ['Make', 'Model', 'Engine Fuel Type', 'Transmission Type', 
+                 'Driven_Wheels', 'Market Category', 'Vehicle Size', 'Vehicle Style']:
+        data[field] = sanitize_input(data[field])
+    
+    # Validate categorical fields
+    if data['Engine Fuel Type'] not in SecurityConfig.ALLOWED_FUEL_TYPES:
+        return False, "Invalid engine fuel type"
+    if data['Transmission Type'] not in SecurityConfig.ALLOWED_TRANSMISSION_TYPES:
+        return False, "Invalid transmission type"
+    if data['Driven_Wheels'] not in SecurityConfig.ALLOWED_DRIVEN_WHEELS:
+        return False, "Invalid driven wheels type"
+    if data['Vehicle Size'] not in SecurityConfig.ALLOWED_VEHICLE_SIZES:
+        return False, "Invalid vehicle size"
+    if data['Vehicle Style'] not in SecurityConfig.ALLOWED_VEHICLE_STYLES:
+        return False, "Invalid vehicle style"
+    
+    # Validate numeric fields
+    numeric_fields = ['Year', 'Engine HP', 'Engine Cylinders', 'Number of Doors', 
+                     'highway MPG', 'city mpg', 'Popularity', 'MSRP']
+    for field in numeric_fields:
+        is_valid, error_msg = validate_numeric_input(float(data[field]), field)
+        if not is_valid:
+            return False, error_msg
+    
+    return True, ""
+
+def make_api_request(method: str, url: str, **kwargs) -> Optional[Dict[str, Any]]:
+    """Make an API request with retry logic and error handling."""
+    for attempt in range(SecurityConfig.MAX_RETRIES):
+        try:
+            response = requests.request(
+                method,
+                url,
+                timeout=SecurityConfig.API_TIMEOUT,
+                **kwargs
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.Timeout:
+            if attempt == SecurityConfig.MAX_RETRIES - 1:
+                raise
+            continue
+        except requests.exceptions.RequestException as e:
+            raise
+    return None
+
+# Load initial data with better error handling
+def load_initial_data():
+    try:
+        data = make_api_request('GET', "http://localhost:5000/cars")
+        if data is None:
+            return pd.DataFrame()
+        return pd.DataFrame(data)
+    except Exception as e:
+        print(f"Error loading initial data: {str(e)}")
+        return pd.DataFrame()
 
 # Load initial data
-try:
-    response = requests.get("http://localhost:5000/cars")
-    response.raise_for_status()
-    initial_data = response.json()
-    df = pd.DataFrame(initial_data)
-except Exception as e:
-    print(f"Error fetching initial dataset: {e}")
-    df = pd.DataFrame()  # Fallback to empty DataFrame if needed
+df = load_initial_data()
 
 # Define which columns are categorical and which are numeric
 categorical_columns = [
@@ -134,12 +234,14 @@ app.layout = dbc.Container([
         dark=True,
         sticky="top"
     ),
+    # Filter button with dynamic z-index
     dbc.Button(
         "Filters",
         id="open-offcanvas",
         n_clicks=0,
         color="secondary",
-        style={"position": "fixed", "top": "80px", "left": "20px", "zIndex": 1100}
+        style={"position": "fixed", "top": "80px", "left": "20px", "zIndex": 1100},
+        className="filter-button"
     ),
     dbc.Offcanvas(
         html.Div(all_filters, style={'padding': '10px'}),
@@ -147,17 +249,19 @@ app.layout = dbc.Container([
         title="Filter Options",
         is_open=False,
         placement="start",
-        backdrop=True
+        backdrop=True,
+        style={"zIndex": 1200}  # Higher z-index than the button
     ),
-    # "Add Car" button to open the modal
+    # "Add Car" button with dynamic z-index
     dbc.Button(
         "Add Car",
         id="open-add-car",
         n_clicks=0,
         color="success",
-        style={"position": "fixed", "top": "80px", "right": "20px", "zIndex": 1100}
+        style={"position": "fixed", "top": "80px", "right": "20px", "zIndex": 1100},
+        className="add-car-button"
     ),
-    # Add Car modal form
+    # Add Car modal form with higher z-index
     dbc.Modal(
         [
             dbc.ModalHeader("Add a New Car: *All fields must be filled*"),
@@ -169,6 +273,7 @@ app.layout = dbc.Container([
         ],
         id="add-car-modal",
         is_open=False,
+        style={"zIndex": 1200}  # Higher z-index than the button
     ),
     # Div to display status messages (e.g., submission success)
     html.Div(id="add-car-status", className="mt-3"),
@@ -226,9 +331,7 @@ def toggle_add_car_modal(open_clicks, close_clicks, submit_clicks, is_open):
             return not is_open
     return is_open
 
-# Callback to handle new car submission.
-# This gathers the input values, passes them to model_manager.process_new_car,
-# and returns a success message.
+# Callback to handle new car submission with better error handling
 @app.callback(
     [Output("add-car-status", "children"),
      Output("update-trigger", "data")],
@@ -240,16 +343,34 @@ def toggle_add_car_modal(open_clicks, close_clicks, submit_clicks, is_open):
 def handle_new_car(submit_clicks, *args):
     update_val = args[-1]
     input_values = args[:-1]
+    
     if submit_clicks:
-        # Create a dict for the new car from the form inputs.
+        # Validate all required fields are filled
+        if any(value is None for value in input_values):
+            return dbc.Alert("All fields must be filled", color="danger"), update_val
+            
+        # Create a dict for the new car from the form inputs
         new_car = {field: value for (field, _), value in zip(new_car_fields, input_values)}
+        
+        # Validate and sanitize input data
+        is_valid, error_message = validate_car_data(new_car)
+        if not is_valid:
+            return dbc.Alert(error_message, color="danger"), update_val
+
         try:
-            # Post new vehicle data to Flask server
-            response = requests.post("http://localhost:5000/cars", json=new_car)
-            response.raise_for_status()
+            # Post new vehicle data to Flask server with retry logic
+            response_data = make_api_request('POST', "http://localhost:5000/cars", json=new_car)
+            if response_data is None:
+                return dbc.Alert("Failed to submit new car after multiple attempts", color="danger"), update_val
+                
+            if 'error' in response_data:
+                return dbc.Alert(response_data['error'], color="danger"), update_val
+                
             return dbc.Alert("New car submitted successfully", color="success"), update_val + 1
+            
         except Exception as e:
-            return dbc.Alert(f"Error submitting new car: {e}", color="danger"), update_val
+            return dbc.Alert(f"Error submitting new car: {str(e)}", color="danger"), update_val
+            
     return "", update_val
 
 # Create a callback that takes the values from each filter
@@ -260,14 +381,15 @@ def handle_new_car(submit_clicks, *args):
     [Input(f"{col.replace(' ', '_').lower()}-slider", 'value') for col in numeric_columns]
 )
 def update_graph(update_trigger, *args):
-    # Get updated dataset from Flask server
+    # Get updated dataset from Flask server with retry logic
     try:
-        response = requests.get("http://localhost:5000/cars")
-        response.raise_for_status()
-        updated_data = response.json()
-        updated_df = pd.DataFrame(updated_data)
+        data = make_api_request('GET', "http://localhost:5000/cars")
+        if data is None:
+            updated_df = df.copy()
+        else:
+            updated_df = pd.DataFrame(data)
     except Exception as e:
-        print(f"error fetching updated data: {e}")
+        print(f"Error updating data: {str(e)}")
         updated_df = df.copy()
 
     for col in numeric_columns:
@@ -319,28 +441,60 @@ def update_graph(update_trigger, *args):
     Output('car-details', 'children'),
     Input('pca-scatter', 'clickData')
 )
-
 def display_car_details(clickData):
     if clickData is None:
         return "Click on a datapoint to see details for that vehicle."
     
-    # Extract the custom data (the index) from the clicked point
-    point_index = clickData['points'][0]['customdata'][0]
-    # Retrieve the corresponding row from the original DataFrame
-    car_data = df.loc[point_index]
-    
-    # Build a table to display all of the car's data
-    table_rows = []
-    for col, val in car_data.items():
-        table_rows.append(
-            html.Tr([
-                html.Td(html.B(col), style={'border': '1px solid #ccc', 'padding': '5px'}),
-                html.Td(str(val), style={'border': '1px solid #ccc', 'padding': '5px'})
-            ])
-        )
-    
-    table = dbc.Table(table_rows, bordered=True, striped=True, hover=True, responsive=True)
-    return table
+    try:
+        # Extract the custom data (the index) from the clicked point
+        point_index = clickData['points'][0]['customdata'][0]
+        # Retrieve the corresponding row from the original DataFrame
+        car_data = df.loc[point_index]
+        
+        # Build a table to display all of the car's data with XSS prevention
+        table_rows = []
+        for col, val in car_data.items():
+            # Handle NaN values and escape HTML
+            if pd.isna(val):
+                val = "N/A"
+            else:
+                val = html_escape.escape(str(val))
+            table_rows.append(
+                html.Tr([
+                    html.Td(html.B(html_escape.escape(col)), 
+                           style={'border': '1px solid #ccc', 'padding': '5px'}),
+                    html.Td(val, style={'border': '1px solid #ccc', 'padding': '5px'})
+                ])
+            )
+        
+        table = dbc.Table(table_rows, bordered=True, striped=True, hover=True, responsive=True)
+        return table
+    except KeyError:
+        return dbc.Alert("Error: Selected data point not found", color="danger")
+    except Exception as e:
+        return dbc.Alert(f"Error displaying car details: {str(e)}", color="danger")
+
+# Add callback to handle button visibility
+@app.callback(
+    [Output("open-offcanvas", "style"),
+     Output("open-add-car", "style")],
+    [Input("offcanvas", "is_open"),
+     Input("add-car-modal", "is_open")]
+)
+def update_button_styles(offcanvas_open, modal_open):
+    filter_button_style = {
+        "position": "fixed",
+        "top": "80px",
+        "left": "20px",
+        "zIndex": 900 if offcanvas_open else 1100  # Lower z-index when menu is open
+    }
+    add_car_button_style = {
+        "position": "fixed",
+        "top": "80px",
+        "right": "20px",
+        "zIndex": 900 if modal_open else 1100  # Lower z-index when menu is open
+    }
+    return filter_button_style, add_car_button_style
 
 if __name__ == '__main__':
     app.run(debug=True)
