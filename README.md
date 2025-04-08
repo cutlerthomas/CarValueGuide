@@ -4,7 +4,11 @@ A full-stack web application that analyzes vehicle value based on mechanical com
 
 ## Features
 
-- **Interactive 3D Visualization**: Explore vehicle clusters in 3D space using PCA-reduced dimensions
+- **Interactive 3D/2D Visualization**: 
+  - Explore vehicle clusters in 3D space using PCA-reduced dimensions
+  - Switch between 3D and 2D views
+  - Customize axis selection for both views
+  - Color points by different attributes (meta_cluster, Make, Vehicle Size, Engine Fuel Type)
 - **Real-time Predictions**: Add new vehicles and get instant cluster assignments and value scores
 - **Advanced Filtering**: Filter vehicles by various attributes (make, model, year, etc.)
 - **Value Scoring**: Compare vehicle values within clusters and meta-clusters
@@ -82,10 +86,32 @@ CarValueGuide/
    - Meta-cluster value comparison
    - Real-time score updates for new vehicles
 
+## Visualization Features
+
+1. **Graph Types**:
+   - 3D view: Default view using PCA-reduced dimensions (P1, P2, P3)
+   - 2D view: Customizable view using any numeric feature or PCA dimension
+
+2. **Customization Options**:
+   - Switch between 2D and 3D visualizations
+   - Select features for x, y, and z axes (in 3D mode)
+   - Select features for x and y axes (in 2D mode)
+   - Color points by different attributes:
+     - Meta-cluster (default)
+     - Make
+     - Vehicle Size
+     - Engine Fuel Type
+
+3. **Interactive Features**:
+   - Hover over points to see vehicle details
+   - Click on points to view detailed vehicle information
+   - Apply filters to focus on specific vehicle attributes
+
 ## Current Status
 
 - ✅ ML pipeline implementation complete
 - ✅ Frontend visualization and interaction
+- ✅ Graph customization features
 - ✅ Backend API and database
 - ✅ Security measures implemented
 - ✅ Real-time predictions working

@@ -15,80 +15,134 @@ import re
 from datetime import datetime, timedelta
 import secrets
 
-# Configure logging
+# Configure application logging for monitoring and debugging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize Flask app
+# Initialize the Flask application
 app = Flask(__name__)
 
-# Security configuration
+# Security configuration class defining application security parameters
 class SecurityConfig:
-    # CORS settings
-    CORS_ORIGINS = ['http://localhost:8050']  # Add your frontend URL
+    # CORS configuration for cross-origin resource sharing
+    CORS_ORIGINS = ['http://localhost:8050']  # Frontend URL
     CORS_METHODS = ['GET', 'POST']
     CORS_HEADERS = ['Content-Type', 'Authorization']
     
-    # Rate limiting
-    RATE_LIMIT = os.getenv('RATE_LIMIT', '100 per minute')
-    RATE_LIMIT_POST = os.getenv('RATE_LIMIT_POST', '10 per minute')
+    # Rate limiting configuration to prevent abuse
+    RATE_LIMIT = os.getenv('RATE_LIMIT', '100 per minute')  # Default rate limit
+    RATE_LIMIT_POST = os.getenv('RATE_LIMIT_POST', '10 per minute')  # Stricter limit for POST requests
     
-    # Session settings
+    # Session configuration for user authentication
     SESSION_LIFETIME = timedelta(hours=1)
     
-    # Input validation
+    # Input validation parameters
     MAX_STRING_LENGTH = 80
     MAX_NUMERIC_VALUE = 1000000
-    ALLOWED_MAKES = set()  # Will be populated from data
-    ALLOWED_MODELS = set()  # Will be populated from data
-    ALLOWED_FUEL_TYPES = {'regular unleaded', 'premium unleaded', 'diesel', 'electric'}
-    ALLOWED_TRANSMISSION_TYPES = {'AUTOMATIC', 'MANUAL'}
-    ALLOWED_DRIVEN_WHEELS = {'front wheel drive', 'rear wheel drive', 'all wheel drive', 'four wheel drive'}
-    ALLOWED_VEHICLE_SIZES = {'Compact', 'Midsize', 'Large'}
-    ALLOWED_VEHICLE_STYLES = {'Sedan', 'SUV', 'Truck', 'Van', 'Wagon', 'Coupe', 'Convertible'}
+    ALLOWED_MAKES = set()  # Populated dynamically from database
+    ALLOWED_MODELS = set()  # Populated dynamically from database
+    ALLOWED_FUEL_TYPES = {
+        'diesel',
+        'electric',
+        'flex-fuel (premium unleaded recommended/E85)',
+        'flex-fuel (premium unleaded required/E85)',
+        'flex-fuel (unleaded/E85)',
+        'flex-fuel (unleaded/natural gas)',
+        'natural gas',
+        'premium unleaded (recommended)',
+        'premium unleaded (required)',
+        'regular unleaded'
+    }
+    ALLOWED_TRANSMISSION_TYPES = {
+        'AUTOMATED_MANUAL',
+        'AUTOMATIC',
+        'DIRECT_DRIVE',
+        'MANUAL',
+        'UNKNOWN'
+    }
+    ALLOWED_DRIVEN_WHEELS = {
+        'all wheel drive',
+        'four wheel drive',
+        'front wheel drive',
+        'rear wheel drive'
+    }
+    ALLOWED_VEHICLE_SIZES = {
+        'Compact',
+        'Large',
+        'Midsize'
+    }
+    ALLOWED_VEHICLE_STYLES = {
+        '2dr Hatchback',
+        '2dr SUV',
+        '4dr Hatchback',
+        '4dr SUV',
+        'Cargo Minivan',
+        'Cargo Van',
+        'Convertible',
+        'Convertible SUV',
+        'Coupe',
+        'Crew Cab Pickup',
+        'Extended Cab Pickup',
+        'Passenger Minivan',
+        'Passenger Van',
+        'Regular Cab Pickup',
+        'Sedan',
+        'Wagon'
+    }
+    # Market Category validation handled separately due to large number of possible values
 
-# Configuration
+# Application configuration class defining core settings
 class Config:
     SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL', 'sqlite:///cars.db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     RATE_LIMIT = SecurityConfig.RATE_LIMIT
-    MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max file size
-    SECRET_KEY = os.getenv('SECRET_KEY', secrets.token_hex(32))  # Generate a secure secret key
-    SESSION_COOKIE_SECURE = True  # Only send cookies over HTTPS
-    SESSION_COOKIE_HTTPONLY = True  # Prevent JavaScript access to session cookie
-    SESSION_COOKIE_SAMESITE = 'Lax'  # Protect against CSRF
+    MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB maximum file size
+    SECRET_KEY = os.getenv('SECRET_KEY', secrets.token_hex(32))  # Secure random key generation
+    SESSION_COOKIE_SECURE = True  # Enforce HTTPS for cookies
+    SESSION_COOKIE_HTTPONLY = True  # Prevent JavaScript access to cookies
+    SESSION_COOKIE_SAMESITE = 'Lax'  # CSRF protection
     PERMANENT_SESSION_LIFETIME = SecurityConfig.SESSION_LIFETIME
 
+# Apply configuration to the Flask application
 app.config.from_object(Config)
 
-# Initialize SQLAlchemy
+# Initialize SQLAlchemy ORM for database operations
 db = SQLAlchemy(app)
 
-# Configure CORS with security settings
+# Configure CORS with security settings to control cross-origin requests
 CORS(app, 
      origins=SecurityConfig.CORS_ORIGINS,
      methods=SecurityConfig.CORS_METHODS,
      allow_headers=SecurityConfig.CORS_HEADERS,
-     supports_credentials=True)
+     supports_credentials=True,
+     expose_headers=['Content-Type', 'X-Content-Type-Options', 'X-Frame-Options', 
+                    'X-XSS-Protection', 'Strict-Transport-Security', 'Content-Security-Policy'])
 
-# Add security headers middleware
+# Middleware to add CORS headers to all responses
+@app.after_request
+def add_cors_headers(response):
+    response.headers['Access-Control-Allow-Methods'] = ', '.join(SecurityConfig.CORS_METHODS)
+    response.headers['Access-Control-Allow-Headers'] = ', '.join(SecurityConfig.CORS_HEADERS)
+    return response
+
+# Middleware to add security headers to all responses
 @app.after_request
 def add_security_headers(response):
     response.headers['X-Content-Type-Options'] = 'nosniff'
-    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'  # Allow embedding in same origin
     response.headers['X-XSS-Protection'] = '1; mode=block'
     response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
     response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline';"
     return response
 
-# Add rate limiting
+# Configure rate limiting to prevent API abuse
 limiter = Limiter(
     app=app,
     key_func=get_remote_address,
     default_limits=[app.config['RATE_LIMIT']]
 )
 
-# Define the Car model.
+# Database model representing vehicle data
 class Car(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     Make = db.Column(db.String(80))
@@ -107,17 +161,18 @@ class Car(db.Model):
     city_mpg = db.Column(db.Float)
     Popularity = db.Column(db.Float)
     MSRP = db.Column(db.Float)
-    # Fields expected to be set by the ML model.
-    cluster = db.Column(db.String(80))
+    # Machine learning model outputs
+    cluster = db.Column(db.Float)
     P1 = db.Column(db.Float)
     P2 = db.Column(db.Float)
     P3 = db.Column(db.Float)
-    meta_cluster = db.Column(db.String(80))
-    # Computed fields.
+    meta_cluster = db.Column(db.Float)
+    # Computed metrics for value analysis
     cluster_avg = db.Column(db.Float)
     value_score = db.Column(db.Float)
     meta_value_score = db.Column(db.Float)
 
+    # Convert database record to dictionary for API responses
     def to_dict(self):
         try:
             return {
@@ -151,44 +206,47 @@ class Car(db.Model):
             logger.error(f"Error converting car to dict: {str(e)}")
             raise
 
+# Input sanitization function to prevent XSS and injection attacks
 def sanitize_input(value: str) -> str:
     """Sanitize string input to prevent XSS and injection attacks."""
     if not isinstance(value, str):
         return str(value)
     # Remove potentially dangerous characters
     value = re.sub(r'[<>]', '', value)
-    # Truncate to max length
+    # Truncate to maximum allowed length
     return value[:SecurityConfig.MAX_STRING_LENGTH]
 
+# Numeric input validation function
 def validate_numeric_input(value: float, field_name: str) -> tuple[bool, str]:
-    """Validate numeric input values."""
+    """Validate numeric input values against defined constraints."""
     if not isinstance(value, (int, float)):
         return False, f"{field_name} must be a number"
-    if value <= 0:
-        return False, f"{field_name} must be positive"
+    if value < 0:  # Allow 0 for electric vehicles with no cylinders
+        return False, f"{field_name} must be non-negative"
     if value > SecurityConfig.MAX_NUMERIC_VALUE:
         return False, f"{field_name} exceeds maximum allowed value"
     return True, ""
 
+# Comprehensive vehicle data validation function
 def validate_car_data(data: Dict[str, Any]) -> tuple[bool, str]:
-    """Validate car data before processing with enhanced security checks."""
+    """Validate vehicle data against defined constraints and security requirements."""
     required_fields = [
         'Make', 'Model', 'Year', 'Engine Fuel Type', 'Engine HP', 'Engine Cylinders',
         'Transmission Type', 'Driven_Wheels', 'Number of Doors', 'Market Category',
         'Vehicle Size', 'Vehicle Style', 'highway MPG', 'city mpg', 'Popularity', 'MSRP'
     ]
     
-    # Check for missing required fields
+    # Verify all required fields are present
     missing_fields = [field for field in required_fields if field not in data]
     if missing_fields:
         return False, f"Missing required fields: {', '.join(missing_fields)}"
     
-    # Sanitize string inputs
+    # Sanitize all string inputs
     for field in ['Make', 'Model', 'Engine Fuel Type', 'Transmission Type', 
                  'Driven_Wheels', 'Market Category', 'Vehicle Size', 'Vehicle Style']:
         data[field] = sanitize_input(data[field])
     
-    # Validate categorical fields
+    # Validate categorical fields against allowed values
     if data['Engine Fuel Type'] not in SecurityConfig.ALLOWED_FUEL_TYPES:
         return False, "Invalid engine fuel type"
     if data['Transmission Type'] not in SecurityConfig.ALLOWED_TRANSMISSION_TYPES:
@@ -208,16 +266,17 @@ def validate_car_data(data: Dict[str, Any]) -> tuple[bool, str]:
         if not is_valid:
             return False, error_msg
     
-    # Validate ranges
+    # Validate year is within reasonable range
     if not (1900 <= float(data['Year']) <= datetime.now().year):
         return False, f"Year must be between 1900 and {datetime.now().year}"
     
     return True, ""
 
+# API endpoint to retrieve all vehicles
 @app.route('/cars', methods=['GET'])
 @limiter.limit(SecurityConfig.RATE_LIMIT)
 def get_cars():
-    """Return the entire database as JSON with security headers."""
+    """Retrieve all vehicles from the database with security headers."""
     try:
         cars = Car.query.all()
         return jsonify([car.to_dict() for car in cars])
@@ -228,21 +287,29 @@ def get_cars():
         logger.error(f"Unexpected error while fetching cars: {str(e)}")
         return jsonify({'error': 'An unexpected error occurred'}), 500
 
+# API endpoint to add a new vehicle
 @app.route('/cars', methods=['POST'])
 @limiter.limit(SecurityConfig.RATE_LIMIT_POST)
 def add_car():
-    """Add a new car entry to the database with enhanced security."""
+    """Process and store a new vehicle with validation and security measures."""
     try:
+        logger.info("Received POST request to /cars endpoint")
         data = request.get_json()
         if not data:
+            logger.error("No JSON data provided in request")
             return jsonify({'error': 'No JSON data provided'}), 400
 
-        # Validate input data
+        logger.info(f"Received car data: {data}")
+        
+        # Validate input data against security requirements
         is_valid, error_message = validate_car_data(data)
         if not is_valid:
+            logger.error(f"Invalid car data: {error_message}")
             return jsonify({'error': error_message}), 400
 
-        # Convert and sanitize data to proper types
+        logger.info("Car data validation successful")
+
+        # Convert and sanitize data to appropriate types
         new_car = {
             'Make': sanitize_input(str(data['Make'])),
             'Model': sanitize_input(str(data['Model'])),
@@ -262,30 +329,39 @@ def add_car():
             'MSRP': float(data['MSRP'])
         }
 
-        # Use models to assign additional fields
+        logger.info("Data sanitization complete")
+
+        # Apply machine learning models to generate additional features
+        logger.info("Starting prediction with ML models")
         new_car_df = pd.DataFrame([new_car])
         new_car_df = predict_vehicle_features(new_car_df)
         updated_car = new_car_df.iloc[0].to_dict()
+        logger.info(f"ML prediction complete. Results: {updated_car}")
 
-        # Calculate value_score and meta_value_score for new vehicles
+        # Extract key values for value score calculation
         cluster = updated_car['cluster']
         meta_cluster = updated_car['meta_cluster']
         msrp = updated_car['MSRP']
 
         if cluster is None or meta_cluster is None or msrp is None:
+            logger.error(f"Missing required prediction values: cluster={cluster}, meta_cluster={meta_cluster}, msrp={msrp}")
             return jsonify({'error': 'Missing cluster, meta_cluster, or MSRP from ML prediction'}), 400
         
-        # Compute Additional Fields
+        # Calculate value scores based on cluster and meta-cluster averages
         try:
+            logger.info("Computing cluster average")
             cluster_avg_result = db.session.query(func.avg(Car.MSRP)).filter(Car.cluster == cluster).scalar()
             count_cluster = db.session.query(func.count(Car.id)).filter(Car.cluster == cluster).scalar() or 0
             if count_cluster == 0 or cluster_avg_result is None:
                 cluster_avg = msrp
             else:
                 cluster_avg = (cluster_avg_result * count_cluster + msrp) / (count_cluster + 1)
+            logger.info(f"Cluster average computed: {cluster_avg}")
 
             value_score = msrp / cluster_avg if cluster_avg != 0 else None
+            logger.info(f"Value score computed: {value_score}")
 
+            logger.info("Computing meta cluster average")
             meta_value_avg_result = db.session.query(func.avg(Car.value_score)).filter(Car.meta_cluster == meta_cluster).scalar()
             count_meta = db.session.query(func.count(Car.id)).filter(Car.meta_cluster == meta_cluster).scalar() or 0
             if count_meta == 0 or meta_value_avg_result is None:
@@ -293,11 +369,13 @@ def add_car():
             else:
                 meta_value_avg = (meta_value_avg_result * count_meta + value_score) / (count_meta + 1)
                 meta_value_score = value_score / meta_value_avg if meta_value_avg != 0 else None
+            logger.info(f"Meta value score computed: {meta_value_score}")
         except SQLAlchemyError as e:
             logger.error(f"Database error while computing scores: {str(e)}")
             return jsonify({'error': 'Database error occurred while computing scores'}), 500
 
-        # Create a new Car record
+        # Create and store the new vehicle record
+        logger.info("Creating new Car record")
         car = Car(
             Make=updated_car['Make'],
             Model=updated_car['Model'],
@@ -315,19 +393,21 @@ def add_car():
             city_mpg=updated_car['city mpg'],
             Popularity=updated_car['Popularity'],
             MSRP=updated_car['MSRP'],
-            cluster=updated_car['cluster'],
-            P1=updated_car['P1'],
-            P2=updated_car['P2'],
-            P3=updated_car['P3'],
-            meta_cluster=updated_car['meta_cluster'],
+            cluster=float(updated_car['cluster']),
+            P1=float(updated_car['P1']),
+            P2=float(updated_car['P2']),
+            P3=float(updated_car['P3']),
+            meta_cluster=float(updated_car['meta_cluster']),
             cluster_avg=cluster_avg,
             value_score=value_score,
             meta_value_score=meta_value_score
         )
 
         try:
+            logger.info("Adding car to database")
             db.session.add(car)
             db.session.commit()
+            logger.info(f"Car added successfully with ID: {car.id}")
             return jsonify(car.to_dict()), 201
         except SQLAlchemyError as e:
             db.session.rollback()
@@ -338,17 +418,18 @@ def add_car():
         logger.error(f"Unexpected error while adding car: {str(e)}")
         return jsonify({'error': 'An unexpected error occurred'}), 500
 
+# Function to initialize database from CSV file
 def load_csv_to_db(csv_file_path):
-    """Load data from CSV to database with enhanced security."""
+    """Load vehicle data from CSV file into the database with security validation."""
     try:
         df = pd.read_csv(csv_file_path)
-        # Populate allowed values from data
+        # Populate allowed values from data for validation
         SecurityConfig.ALLOWED_MAKES = set(df['Make'].unique())
         SecurityConfig.ALLOWED_MODELS = set(df['Model'].unique())
         
         for index, row in df.iterrows():
             try:
-                # Sanitize all string inputs
+                # Sanitize all string inputs before database insertion
                 car = Car(
                     Make=sanitize_input(str(row['Make'])),
                     Model=sanitize_input(str(row['Model'])),
@@ -385,11 +466,9 @@ def load_csv_to_db(csv_file_path):
         db.session.rollback()
         raise
 
+# Function to display database statistics
 def print_db_stats():
-    """Prints full stats of the current database:
-       - Total number of rows.
-       - Any rows with missing or NaN values.
-    """
+    """Display database statistics including row count and data quality metrics."""
     with app.app_context():
         all_cars = Car.query.all()
         total_rows = len(all_cars)
@@ -398,7 +477,7 @@ def print_db_stats():
         missing_rows = []
         for car in all_cars:
             car_dict = car.to_dict()
-            # Check for missing values (None or NaN).
+            # Identify rows with missing or invalid values
             if any(pd.isna(value) or value is None for value in car_dict.values()):
                 missing_rows.append(car_dict)
         if missing_rows:
@@ -408,9 +487,14 @@ def print_db_stats():
         else:
             print("No rows with missing or NaN values.")
 
+# Application entry point
 if __name__ == '__main__':
     with app.app_context():
         try:
+            # Initialize database schema
+            db.create_all()
+            
+            # Load initial data if database is empty
             if Car.query.first() is None:
                 print("Database is empty, initializing from CSV...")
                 load_csv_to_db('final_vehicle_data.csv')

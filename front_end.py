@@ -10,56 +10,102 @@ import re
 from typing import Dict, Any, Optional
 import html as html_escape
 
-# Security configuration
+# Security configuration class defining frontend security parameters
 class SecurityConfig:
     MAX_STRING_LENGTH = 80
-    MAX_NUMERIC_VALUE = 1000000
-    ALLOWED_FUEL_TYPES = {'regular unleaded', 'premium unleaded', 'diesel', 'electric'}
-    ALLOWED_TRANSMISSION_TYPES = {'AUTOMATIC', 'MANUAL'}
-    ALLOWED_DRIVEN_WHEELS = {'front wheel drive', 'rear wheel drive', 'all wheel drive', 'four wheel drive'}
-    ALLOWED_VEHICLE_SIZES = {'Compact', 'Midsize', 'Large'}
-    ALLOWED_VEHICLE_STYLES = {'Sedan', 'SUV', 'Truck', 'Van', 'Wagon', 'Coupe', 'Convertible'}
+    MAX_NUMERIC_VALUE = 10000000
+    ALLOWED_FUEL_TYPES = {
+        'diesel',
+        'electric',
+        'flex-fuel (premium unleaded recommended/E85)',
+        'flex-fuel (premium unleaded required/E85)',
+        'flex-fuel (unleaded/E85)',
+        'flex-fuel (unleaded/natural gas)',
+        'natural gas',
+        'premium unleaded (recommended)',
+        'premium unleaded (required)',
+        'regular unleaded'
+    }
+    ALLOWED_TRANSMISSION_TYPES = {
+        'AUTOMATED_MANUAL',
+        'AUTOMATIC',
+        'DIRECT_DRIVE',
+        'MANUAL',
+        'UNKNOWN'
+    }
+    ALLOWED_DRIVEN_WHEELS = {
+        'all wheel drive',
+        'four wheel drive',
+        'front wheel drive',
+        'rear wheel drive'
+    }
+    ALLOWED_VEHICLE_SIZES = {
+        'Compact',
+        'Large',
+        'Midsize'
+    }
+    ALLOWED_VEHICLE_STYLES = {
+        '2dr Hatchback',
+        '2dr SUV',
+        '4dr Hatchback',
+        '4dr SUV',
+        'Cargo Minivan',
+        'Cargo Van',
+        'Convertible',
+        'Convertible SUV',
+        'Coupe',
+        'Crew Cab Pickup',
+        'Extended Cab Pickup',
+        'Passenger Minivan',
+        'Passenger Van',
+        'Regular Cab Pickup',
+        'Sedan',
+        'Wagon'
+    }
     API_TIMEOUT = 10
     MAX_RETRIES = 3
 
+# Input sanitization function to prevent XSS attacks
 def sanitize_input(value: str) -> str:
     """Sanitize string input to prevent XSS attacks."""
     if not isinstance(value, str):
         return str(value)
     # Remove potentially dangerous characters
     value = re.sub(r'[<>]', '', value)
-    # Truncate to max length
+    # Truncate to maximum allowed length
     return value[:SecurityConfig.MAX_STRING_LENGTH]
 
+# Numeric input validation function
 def validate_numeric_input(value: float, field_name: str) -> tuple[bool, str]:
-    """Validate numeric input values."""
+    """Validate numeric input values against defined constraints."""
     if not isinstance(value, (int, float)):
         return False, f"{field_name} must be a number"
-    if value <= 0:
-        return False, f"{field_name} must be positive"
+    if value < 0:  # Allow 0 for electric vehicles with no cylinders
+        return False, f"{field_name} must be non-negative"
     if value > SecurityConfig.MAX_NUMERIC_VALUE:
         return False, f"{field_name} exceeds maximum allowed value"
     return True, ""
 
+# Comprehensive vehicle data validation function
 def validate_car_data(data: Dict[str, Any]) -> tuple[bool, str]:
-    """Validate car data before submission."""
+    """Validate vehicle data against defined constraints and security requirements."""
     required_fields = [
         'Make', 'Model', 'Year', 'Engine Fuel Type', 'Engine HP', 'Engine Cylinders',
         'Transmission Type', 'Driven_Wheels', 'Number of Doors', 'Market Category',
         'Vehicle Size', 'Vehicle Style', 'highway MPG', 'city mpg', 'Popularity', 'MSRP'
     ]
     
-    # Check for missing required fields
+    # Verify all required fields are present
     missing_fields = [field for field in required_fields if field not in data]
     if missing_fields:
         return False, f"Missing required fields: {', '.join(missing_fields)}"
     
-    # Sanitize string inputs
+    # Sanitize all string inputs
     for field in ['Make', 'Model', 'Engine Fuel Type', 'Transmission Type', 
                  'Driven_Wheels', 'Market Category', 'Vehicle Size', 'Vehicle Style']:
         data[field] = sanitize_input(data[field])
     
-    # Validate categorical fields
+    # Validate categorical fields against allowed values
     if data['Engine Fuel Type'] not in SecurityConfig.ALLOWED_FUEL_TYPES:
         return False, "Invalid engine fuel type"
     if data['Transmission Type'] not in SecurityConfig.ALLOWED_TRANSMISSION_TYPES:
@@ -81,6 +127,7 @@ def validate_car_data(data: Dict[str, Any]) -> tuple[bool, str]:
     
     return True, ""
 
+# API request function with retry logic and error handling
 def make_api_request(method: str, url: str, **kwargs) -> Optional[Dict[str, Any]]:
     """Make an API request with retry logic and error handling."""
     for attempt in range(SecurityConfig.MAX_RETRIES):
@@ -101,21 +148,34 @@ def make_api_request(method: str, url: str, **kwargs) -> Optional[Dict[str, Any]
             raise
     return None
 
-# Load initial data with better error handling
+# Function to load initial vehicle data from the API
 def load_initial_data():
+    """Retrieve vehicle data from the backend API with error handling."""
     try:
         data = make_api_request('GET', "http://localhost:5000/cars")
         if data is None:
-            return pd.DataFrame()
+            # Return empty DataFrame with correct columns for testing
+            return pd.DataFrame(columns=[
+                'Make', 'Model', 'Year', 'Engine Fuel Type', 'Engine HP', 'Engine Cylinders',
+                'Transmission Type', 'Driven_Wheels', 'Number of Doors', 'Market Category',
+                'Vehicle Size', 'Vehicle Style', 'highway MPG', 'city mpg', 'Popularity', 'MSRP',
+                'cluster', 'P1', 'P2', 'P3', 'meta_cluster', 'cluster_avg', 'value_score', 'meta_value_score'
+            ])
         return pd.DataFrame(data)
     except Exception as e:
         print(f"Error loading initial data: {str(e)}")
-        return pd.DataFrame()
+        # Return empty DataFrame with correct columns for testing
+        return pd.DataFrame(columns=[
+            'Make', 'Model', 'Year', 'Engine Fuel Type', 'Engine HP', 'Engine Cylinders',
+            'Transmission Type', 'Driven_Wheels', 'Number of Doors', 'Market Category',
+            'Vehicle Size', 'Vehicle Style', 'highway MPG', 'city mpg', 'Popularity', 'MSRP',
+            'cluster', 'P1', 'P2', 'P3', 'meta_cluster', 'cluster_avg', 'value_score', 'meta_value_score'
+        ])
 
-# Load initial data
+# Load initial vehicle data
 df = load_initial_data()
 
-# Define which columns are categorical and which are numeric
+# Define column types for filtering and visualization
 categorical_columns = [
     'Make', 'Model', 'Engine Fuel Type', 'Engine Cylinders',
     'Transmission Type', 'Driven_Wheels', 'Number of Doors',
@@ -124,8 +184,7 @@ categorical_columns = [
 numeric_columns = ['Engine HP', 'highway MPG', 'city mpg', 'MSRP', 'value_score', 'meta_value_score',
                 'cluster', 'meta_cluster']
 
-# Build the "Add Car" modal form.
-# Define the user-input fields:
+# Define form fields for the "Add Car" modal
 new_car_fields = [
     ('Make', 'text'),
     ('Model', 'text'),
@@ -145,12 +204,13 @@ new_car_fields = [
     ('MSRP', 'number')
 ]
 
-# Create form groups for each field
-# For categorical fields, we use a dropdown populated with unique values from df.
+# Create form components for the "Add Car" modal
 add_car_form = []
 for field, typ in new_car_fields:
     if field in categorical_columns:
-        options = [{'label': str(val), 'value': val} for val in sorted(df[field].dropna().unique())]
+        options = []
+        if not df.empty and field in df.columns:
+            options = [{'label': str(val), 'value': val} for val in sorted(df[field].dropna().unique())]
         add_car_form.append(
             dbc.CardGroup([
                 dbc.Label(field),
@@ -199,7 +259,7 @@ for col in numeric_columns:
     df[col] = pd.to_numeric(df[col], errors='coerce')
     min_val = pd.to_numeric(df[col].min(), errors='coerce')
     max_val = pd.to_numeric(df[col].max(), errors='coerce')
-    # A basic step calculation; adjust this as needed
+    # Calculate step size for the range slider
     step = (max_val - min_val) / 100 if (max_val - min_val) > 0 else 1
     numeric_filters.append(
         html.Div([
@@ -218,16 +278,18 @@ for col in numeric_columns:
         ], style={'marginBottom': '25px'}, className='mb-4')
     )
 
+# Combine all filter components
 all_filters = categorical_filters + numeric_filters
 
-# Initialize the Dash app
+# Initialize the Dash application with Bootstrap theme
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.CERULEAN])
 
-# Define the app layout
+# Define the application layout
 app.layout = dbc.Container([
 
     dcc.Store(id='update-trigger', data=0),
 
+    # Application header
     dbc.NavbarSimple(
         brand="Vehicle Data Explorer",
         color="primary",
@@ -243,14 +305,99 @@ app.layout = dbc.Container([
         style={"position": "fixed", "top": "80px", "left": "20px", "zIndex": 1100},
         className="filter-button"
     ),
+    # Offcanvas sidebar for filters and graph customization
     dbc.Offcanvas(
-        html.Div(all_filters, style={'padding': '10px'}),
+        html.Div([
+            # Graph customization section
+            html.H4("Graph Customization", className="mb-3"),
+            dbc.Row([
+                dbc.Col([
+                    html.Label("Graph Type:"),
+                    dcc.RadioItems(
+                        id='graph-type',
+                        options=[
+                            {'label': ' 3D Graph', 'value': '3d'},
+                            {'label': ' 2D Graph', 'value': '2d'}
+                        ],
+                        value='3d',
+                        className="mb-3"
+                    )
+                ], width=6),
+                dbc.Col([
+                    html.Label("Color By:"),
+                    dcc.Dropdown(
+                        id='color-by',
+                        options=[{'label': col, 'value': col} for col in ['meta_cluster', 'Make', 'Vehicle Size', 'Engine Fuel Type']],
+                        value='meta_cluster',
+                        className="mb-3"
+                    )
+                ], width=6)
+            ]),
+            # 3D axis selection panel
+            html.Div(id='axis-selection-3d', children=[
+                dbc.Row([
+                    dbc.Col([
+                        html.Label("X-Axis:"),
+                        dcc.Dropdown(
+                            id='x-axis-3d',
+                            options=[{'label': 'P1', 'value': 'P1'}],
+                            value='P1',
+                            className="mb-3"
+                        )
+                    ], width=4),
+                    dbc.Col([
+                        html.Label("Y-Axis:"),
+                        dcc.Dropdown(
+                            id='y-axis-3d',
+                            options=[{'label': 'P2', 'value': 'P2'}],
+                            value='P2',
+                            className="mb-3"
+                        )
+                    ], width=4),
+                    dbc.Col([
+                        html.Label("Z-Axis:"),
+                        dcc.Dropdown(
+                            id='z-axis-3d',
+                            options=[{'label': 'P3', 'value': 'P3'}],
+                            value='P3',
+                            className="mb-3"
+                        )
+                    ], width=4)
+                ])
+            ]),
+            # 2D axis selection panel
+            html.Div(id='axis-selection-2d', style={'display': 'none'}, children=[
+                dbc.Row([
+                    dbc.Col([
+                        html.Label("X-Axis:"),
+                        dcc.Dropdown(
+                            id='x-axis-2d',
+                            options=[{'label': col, 'value': col} for col in numeric_columns + ['P1', 'P2', 'P3']],
+                            value='MSRP',
+                            className="mb-3"
+                        )
+                    ], width=6),
+                    dbc.Col([
+                        html.Label("Y-Axis:"),
+                        dcc.Dropdown(
+                            id='y-axis-2d',
+                            options=[{'label': col, 'value': col} for col in numeric_columns + ['P1', 'P2', 'P3']],
+                            value='value_score',
+                            className="mb-3"
+                        )
+                    ], width=6)
+                ])
+            ]),
+            # Filter section
+            html.H4("Filters", className="mt-4 mb-3"),
+            html.Div(all_filters, style={'padding': '10px'})
+        ], style={'padding': '10px'}),
         id="offcanvas",
-        title="Filter Options",
+        title="Graph Options & Filters",
         is_open=False,
         placement="start",
         backdrop=True,
-        style={"zIndex": 1200}  # Higher z-index than the button
+        style={"zIndex": 1200}
     ),
     # "Add Car" button with dynamic z-index
     dbc.Button(
@@ -261,7 +408,7 @@ app.layout = dbc.Container([
         style={"position": "fixed", "top": "80px", "right": "20px", "zIndex": 1100},
         className="add-car-button"
     ),
-    # Add Car modal form with higher z-index
+    # "Add Car" modal form
     dbc.Modal(
         [
             dbc.ModalHeader("Add a New Car: *All fields must be filled*"),
@@ -275,8 +422,9 @@ app.layout = dbc.Container([
         is_open=False,
         style={"zIndex": 1200}  # Higher z-index than the button
     ),
-    # Div to display status messages (e.g., submission success)
+    # Status message display area
     html.Div(id="add-car-status", className="mt-3"),
+    # Main visualization area
     dbc.Row([
         dbc.Col(
             dcc.Graph(
@@ -286,6 +434,7 @@ app.layout = dbc.Container([
             width=12
         )
     ], className="mt-5"),
+    # Vehicle details display area
     dbc.Row([
         dbc.Col(
             html.Div(
@@ -302,7 +451,7 @@ app.layout = dbc.Container([
     ], className="mt-3")
 ], fluid=True)
 
-# Toggle sidebar open/close
+# Callback to toggle the offcanvas sidebar
 @app.callback(
     Output("offcanvas", "is_open"),
     Input("open-offcanvas", "n_clicks"),
@@ -313,7 +462,7 @@ def toggle_offcanvas(n_clicks, is_open):
         return not is_open
     return is_open
 
-# Toggle Add Car modal open/close
+# Callback to toggle the "Add Car" modal
 @app.callback(
     Output("add-car-modal", "is_open"),
     [Input("open-add-car", "n_clicks"),
@@ -331,7 +480,7 @@ def toggle_add_car_modal(open_clicks, close_clicks, submit_clicks, is_open):
             return not is_open
     return is_open
 
-# Callback to handle new car submission with better error handling
+# Callback to handle new vehicle submission
 @app.callback(
     [Output("add-car-status", "children"),
      Output("update-trigger", "data")],
@@ -349,7 +498,7 @@ def handle_new_car(submit_clicks, *args):
         if any(value is None for value in input_values):
             return dbc.Alert("All fields must be filled", color="danger"), update_val
             
-        # Create a dict for the new car from the form inputs
+        # Create a dictionary for the new vehicle from form inputs
         new_car = {field: value for (field, _), value in zip(new_car_fields, input_values)}
         
         # Validate and sanitize input data
@@ -358,7 +507,7 @@ def handle_new_car(submit_clicks, *args):
             return dbc.Alert(error_message, color="danger"), update_val
 
         try:
-            # Post new vehicle data to Flask server with retry logic
+            # Submit new vehicle data to backend API
             response_data = make_api_request('POST', "http://localhost:5000/cars", json=new_car)
             if response_data is None:
                 return dbc.Alert("Failed to submit new car after multiple attempts", color="danger"), update_val
@@ -373,15 +522,33 @@ def handle_new_car(submit_clicks, *args):
             
     return "", update_val
 
-# Create a callback that takes the values from each filter
+# Callback to toggle between 2D and 3D axis selection panels
+@app.callback(
+    [Output('axis-selection-2d', 'style'),
+     Output('axis-selection-3d', 'style')],
+    Input('graph-type', 'value')
+)
+def toggle_axis_selection(graph_type):
+    if graph_type == '2d':
+        return {'display': 'block'}, {'display': 'none'}
+    return {'display': 'none'}, {'display': 'block'}
+
+# Callback to update the visualization based on user selections
 @app.callback(
     Output('pca-scatter', 'figure'),
-    [Input('update-trigger', 'data')] +
+    [Input('update-trigger', 'data'),
+     Input('graph-type', 'value'),
+     Input('color-by', 'value'),
+     Input('x-axis-2d', 'value'),
+     Input('y-axis-2d', 'value'),
+     Input('x-axis-3d', 'value'),
+     Input('y-axis-3d', 'value'),
+     Input('z-axis-3d', 'value')] +
     [Input(f"{col.replace(' ', '_').lower()}-dropdown", 'value') for col in categorical_columns] +
     [Input(f"{col.replace(' ', '_').lower()}-slider", 'value') for col in numeric_columns]
 )
-def update_graph(update_trigger, *args):
-    # Get updated dataset from Flask server with retry logic
+def update_graph(update_trigger, graph_type, color_by, x_2d, y_2d, x_3d, y_3d, z_3d, *args):
+    # Retrieve updated dataset from backend API
     try:
         data = make_api_request('GET', "http://localhost:5000/cars")
         if data is None:
@@ -392,10 +559,11 @@ def update_graph(update_trigger, *args):
         print(f"Error updating data: {str(e)}")
         updated_df = df.copy()
 
+    # Convert numeric columns to proper type
     for col in numeric_columns:
         updated_df[col] = pd.to_numeric(updated_df[col], errors='coerce').fillna(0)
 
-    # Separate the inputs: first n are categorical, then numeric inputs follow
+    # Apply user-selected filters
     num_cat = len(categorical_columns)
     cat_values = args[:num_cat]
     num_values = args[num_cat:]
@@ -411,32 +579,40 @@ def update_graph(update_trigger, *args):
         slider_range = num_values[i]
         if slider_range:
             updated_df = updated_df[(updated_df[col] >= slider_range[0]) & 
-                                      (updated_df[col] <= slider_range[1])]
+                                  (updated_df[col] <= slider_range[1])]
             
     updated_df = updated_df.reset_index()
     
-    # Create a 3D scatter plot using PCA coordinates
-    if all(c in updated_df.columns for c in ['P1', 'P2', 'P3']):
+    # Define hover data for tooltips
+    hover_data = ['Make', 'Model', 'Year', 'MSRP', 'value_score']
+    
+    # Create visualization based on selected graph type
+    if graph_type == '3d':
         fig = px.scatter_3d(
             updated_df,
-            x='P1', y='P2', z='P3',
-            color='meta_cluster',  # You can change the color mapping as desired
-            hover_data=['Make', 'Model', 'Year', 'MSRP', 'value_score'],
+            x=x_3d,
+            y=y_3d,
+            z=z_3d,
+            color=color_by,
+            hover_data=hover_data,
             custom_data=['index'],
-            title="3D Scatter Plot of Vehicle Clusters"
+            title="3D Scatter Plot of Vehicle Data"
         )
-        fig.update_layout(transition_duration=500)
     else:
-        # Fallback: if PCA coordinates are not available, plot two numeric columns
         fig = px.scatter(
             updated_df,
-            x=numeric_columns[0], y=numeric_columns[1],
-            title="Scatter Plot (PCA coordinates not available)"
+            x=x_2d,
+            y=y_2d,
+            color=color_by,
+            hover_data=hover_data,
+            custom_data=['index'],
+            title="2D Scatter Plot of Vehicle Data"
         )
     
+    fig.update_layout(transition_duration=500)
     return fig
 
-# Callback to display details of a clicked datapoint below the graph
+# Callback to display details of a selected vehicle
 @app.callback(
     Output('car-details', 'children'),
     Input('pca-scatter', 'clickData')
@@ -446,15 +622,15 @@ def display_car_details(clickData):
         return "Click on a datapoint to see details for that vehicle."
     
     try:
-        # Extract the custom data (the index) from the clicked point
+        # Extract the index from the clicked point
         point_index = clickData['points'][0]['customdata'][0]
-        # Retrieve the corresponding row from the original DataFrame
+        # Retrieve the corresponding vehicle data
         car_data = df.loc[point_index]
         
-        # Build a table to display all of the car's data with XSS prevention
+        # Build a table to display vehicle details with XSS prevention
         table_rows = []
         for col, val in car_data.items():
-            # Handle NaN values and escape HTML
+            # Handle missing values and escape HTML
             if pd.isna(val):
                 val = "N/A"
             else:
@@ -474,7 +650,7 @@ def display_car_details(clickData):
     except Exception as e:
         return dbc.Alert(f"Error displaying car details: {str(e)}", color="danger")
 
-# Add callback to handle button visibility
+# Callback to manage button visibility based on UI state
 @app.callback(
     [Output("open-offcanvas", "style"),
      Output("open-add-car", "style")],
@@ -496,5 +672,6 @@ def update_button_styles(offcanvas_open, modal_open):
     }
     return filter_button_style, add_car_button_style
 
+# Application entry point
 if __name__ == '__main__':
     app.run(debug=True)
