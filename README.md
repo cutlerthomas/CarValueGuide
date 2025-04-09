@@ -128,7 +128,6 @@ CarValueGuide/
 ## Notes
 
 - The application requires significant memory for model loading
-- Large model files are stored separately
 - Database is automatically initialized on first run
 - Security measures are in place for production use
 
