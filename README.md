@@ -128,7 +128,6 @@ CarValueGuide/
 ## Notes
 
 - The application requires significant memory for model loading
-- Due to the fact of how large the models are, until hosting is set up a user would need to train the models themselves in order to use the add vehicle feature. (Training files are included, run them as is to generate model)
 - Large model files are stored separately
 - Database is automatically initialized on first run
 - Security measures are in place for production use
