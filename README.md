@@ -77,7 +77,7 @@ CarValueGuide/
    - Meta-clustering for higher-level vehicle categorization
 
 2. **Model Architecture**:
-   - Primary clustering model (4.2GB)
+   - Primary clustering model (57.66MB with high compression)
    - Meta-clustering model (38MB)
    - Three PCA component models (68MB each)
 
