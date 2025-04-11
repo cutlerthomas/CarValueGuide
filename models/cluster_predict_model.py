@@ -1,10 +1,10 @@
 import pandas as pd
-from sklearn.model_selection import cross_val_score, KFold, GridSearchCV
+from sklearn.model_selection import KFold
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.tree import DecisionTreeClassifier
-from joblib import dump, load
+from joblib import dump
 import numpy as np
 from tqdm import tqdm
 
