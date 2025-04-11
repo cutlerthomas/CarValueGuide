@@ -127,7 +127,6 @@ CarValueGuide/
 
 ## Notes
 
-- The application requires significant memory for model loading
 - Database is automatically initialized on first run
 - Security measures are in place for production use
 
