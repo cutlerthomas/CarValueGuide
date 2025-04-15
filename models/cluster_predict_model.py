@@ -35,15 +35,15 @@ clf_pipeline = Pipeline(steps=[
     ('preprocessor', preprocessor),
     ('classifier', DecisionTreeClassifier(
         random_state=42,
-        criterion='entropy',    # Information gain for better splits
-        min_samples_leaf=1,    # Allow single sample leaves
-        min_samples_split=2,   # Minimum splits for granularity
-        max_depth=45,          # Even deeper tree for complex patterns
-        max_features=0.9,      # Use 90% of features at each split
-        class_weight='balanced',# Handle class imbalance
-        splitter='best',       # Use best splits
-        min_weight_fraction_leaf=0.0,  # Allow very small leaf nodes
-        min_impurity_decrease=0.0001   # Require minimum improvement for splits
+        criterion='entropy',
+        min_samples_leaf=1,
+        min_samples_split=2,
+        max_depth=45,
+        max_features=0.9,
+        class_weight='balanced',
+        splitter='best',
+        min_weight_fraction_leaf=0.0,
+        min_impurity_decrease=0.0001
     ))
 ])
 
