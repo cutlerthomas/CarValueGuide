@@ -67,7 +67,7 @@ CarValueGuide/
 1. **Data Processing**:
    - Initial clustering of vehicles based on mechanical features
    (strip away Make, Model, and MSRP)
-   Silhouette Score (k=1200): 0.5484
+   - Silhouette Score (k=1200): 0.5484
    - PCA reduction to 3 dimensions (P1, P2, P3)
    - === Top features in PC1 ===
       - Engine Cylinders: -0.5026
@@ -103,7 +103,7 @@ CarValueGuide/
       - Vehicle Size=Compact: 0.1418
       - Vehicle Style=Coupe: 0.1361
    - Meta-clustering for higher-level vehicle categorization
-   Silhouette Score *Meta-clusters* (k=20): 0.2714
+   - Silhouette Score *Meta-clusters* (k=20): 0.2714
 
 2. **Model Architecture**:
    - Primary clustering model
