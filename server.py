@@ -208,7 +208,6 @@ class Car(db.Model):
 
 # Input sanitization function to prevent XSS and injection attacks
 def sanitize_input(value: str) -> str:
-    """Sanitize string input to prevent XSS and injection attacks."""
     if not isinstance(value, str):
         return str(value)
     # Remove potentially dangerous characters
@@ -218,7 +217,6 @@ def sanitize_input(value: str) -> str:
 
 # Numeric input validation function
 def validate_numeric_input(value: float, field_name: str) -> tuple[bool, str]:
-    """Validate numeric input values against defined constraints."""
     if not isinstance(value, (int, float)):
         return False, f"{field_name} must be a number"
     if value < 0:  # Allow 0 for electric vehicles with no cylinders
@@ -229,7 +227,6 @@ def validate_numeric_input(value: float, field_name: str) -> tuple[bool, str]:
 
 # Comprehensive vehicle data validation function
 def validate_car_data(data: Dict[str, Any]) -> tuple[bool, str]:
-    """Validate vehicle data against defined constraints and security requirements."""
     required_fields = [
         'Make', 'Model', 'Year', 'Engine Fuel Type', 'Engine HP', 'Engine Cylinders',
         'Transmission Type', 'Driven_Wheels', 'Number of Doors', 'Market Category',
@@ -276,7 +273,6 @@ def validate_car_data(data: Dict[str, Any]) -> tuple[bool, str]:
 @app.route('/cars', methods=['GET'])
 @limiter.limit(SecurityConfig.RATE_LIMIT)
 def get_cars():
-    """Retrieve all vehicles from the database with security headers."""
     try:
         cars = Car.query.all()
         return jsonify([car.to_dict() for car in cars])
@@ -291,7 +287,6 @@ def get_cars():
 @app.route('/cars', methods=['POST'])
 @limiter.limit(SecurityConfig.RATE_LIMIT_POST)
 def add_car():
-    """Process and store a new vehicle with validation and security measures."""
     try:
         logger.info("Received POST request to /cars endpoint")
         data = request.get_json()
@@ -420,7 +415,6 @@ def add_car():
 
 # Function to initialize database from CSV file
 def load_csv_to_db(csv_file_path):
-    """Load vehicle data from CSV file into the database with security validation."""
     try:
         df = pd.read_csv(csv_file_path)
         # Populate allowed values from data for validation
@@ -468,7 +462,6 @@ def load_csv_to_db(csv_file_path):
 
 # Function to display database statistics
 def print_db_stats():
-    """Display database statistics including row count and data quality metrics."""
     with app.app_context():
         all_cars = Car.query.all()
         total_rows = len(all_cars)

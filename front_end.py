@@ -67,7 +67,6 @@ class SecurityConfig:
 
 # Input sanitization function to prevent XSS attacks
 def sanitize_input(value: str) -> str:
-    """Sanitize string input to prevent XSS attacks."""
     if not isinstance(value, str):
         return str(value)
     # Remove potentially dangerous characters
@@ -77,10 +76,9 @@ def sanitize_input(value: str) -> str:
 
 # Numeric input validation function
 def validate_numeric_input(value: float, field_name: str) -> tuple[bool, str]:
-    """Validate numeric input values against defined constraints."""
     if not isinstance(value, (int, float)):
         return False, f"{field_name} must be a number"
-    if value < 0:  # Allow 0 for electric vehicles with no cylinders
+    if value < 0:  
         return False, f"{field_name} must be non-negative"
     if value > SecurityConfig.MAX_NUMERIC_VALUE:
         return False, f"{field_name} exceeds maximum allowed value"
@@ -88,7 +86,6 @@ def validate_numeric_input(value: float, field_name: str) -> tuple[bool, str]:
 
 # Comprehensive vehicle data validation function
 def validate_car_data(data: Dict[str, Any]) -> tuple[bool, str]:
-    """Validate vehicle data against defined constraints and security requirements."""
     required_fields = [
         'Make', 'Model', 'Year', 'Engine Fuel Type', 'Engine HP', 'Engine Cylinders',
         'Transmission Type', 'Driven_Wheels', 'Number of Doors', 'Market Category',
@@ -129,7 +126,6 @@ def validate_car_data(data: Dict[str, Any]) -> tuple[bool, str]:
 
 # API request function with retry logic and error handling
 def make_api_request(method: str, url: str, **kwargs) -> Optional[Dict[str, Any]]:
-    """Make an API request with retry logic and error handling."""
     for attempt in range(SecurityConfig.MAX_RETRIES):
         try:
             response = requests.request(
@@ -150,7 +146,6 @@ def make_api_request(method: str, url: str, **kwargs) -> Optional[Dict[str, Any]
 
 # Function to load initial vehicle data from the API
 def load_initial_data():
-    """Retrieve vehicle data from the backend API with error handling."""
     try:
         data = make_api_request('GET', "http://localhost:5000/cars")
         if data is None:
