@@ -69,7 +69,7 @@ CarValueGuide/
    (strip away Make, Model, and MSRP)
    Silhouette Score (k=1200): 0.5484
    - PCA reduction to 3 dimensions (P1, P2, P3)
-      - === Top features in PC1 ===
+   - === Top features in PC1 ===
       - Engine Cylinders: -0.5026
       - highway MPG: 0.4986
       - city mpg: 0.4784
@@ -80,7 +80,7 @@ CarValueGuide/
       - Vehicle Size=Large: -0.0961
       - Vehicle Size=Compact: 0.0956
       - Engine Fuel Type=premium unleaded (required): -0.0747
-      - === Top features in PC2 ===
+   - === Top features in PC2 ===
       - Year: 0.6608
       - Engine HP: 0.3968
       - Number of Doors: 0.3919
@@ -91,7 +91,7 @@ CarValueGuide/
       - Transmission Type=AUTOMATIC: 0.1483
       - Market Category=N/A: -0.1448
       - Vehicle Size=Compact: -0.1364
-      - === Top features in PC3 ===
+   - === Top features in PC3 ===
       - Number of Doors: -0.6864
       - Engine HP: 0.2749
       - city mpg: 0.2600
