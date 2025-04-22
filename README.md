@@ -67,8 +67,43 @@ CarValueGuide/
 1. **Data Processing**:
    - Initial clustering of vehicles based on mechanical features
    (strip away Make, Model, and MSRP)
+   Silhouette Score (k=1200): 0.5484
    - PCA reduction to 3 dimensions (P1, P2, P3)
+      - === Top features in PC1 ===
+      Engine Cylinders: -0.5026
+      highway MPG: 0.4986
+      city mpg: 0.4784
+      Engine HP: -0.4105
+      Driven_Wheels=front wheel drive: 0.1615
+      Number of Doors: 0.1239
+      Driven_Wheels=rear wheel drive: -0.1020
+      Vehicle Size=Large: -0.0961
+      Vehicle Size=Compact: 0.0956
+      Engine Fuel Type=premium unleaded (required): -0.0747
+      - === Top features in PC2 ===
+      Year: 0.6608
+      Engine HP: 0.3968
+      Number of Doors: 0.3919
+      highway MPG: 0.2016
+      city mpg: 0.1804
+      Transmission Type=MANUAL: -0.1751
+      Engine Fuel Type=regular unleaded: -0.1575
+      Transmission Type=AUTOMATIC: 0.1483
+      Market Category=N/A: -0.1448
+      Vehicle Size=Compact: -0.1364
+      - === Top features in PC3 ===
+      Number of Doors: -0.6864
+      Engine HP: 0.2749
+      city mpg: 0.2600
+      highway MPG: 0.2566
+      Popularity: 0.2492
+      Transmission Type=AUTOMATIC: -0.1917
+      Engine Fuel Type=regular unleaded: -0.1789
+      Year: 0.1498
+      Vehicle Size=Compact: 0.1418
+      Vehicle Style=Coupe: 0.1361
    - Meta-clustering for higher-level vehicle categorization
+   Silhouette Score *Meta-clusters* (k=20): 0.2714
 
 2. **Model Architecture**:
    - Primary clustering model
