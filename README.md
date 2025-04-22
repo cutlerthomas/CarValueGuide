@@ -12,12 +12,6 @@ A full-stack web application that analyzes vehicle value based on mechanical com
 - **Real-time Predictions**: Add new vehicles and get instant cluster assignments and value scores
 - **Advanced Filtering**: Filter vehicles by various attributes (make, model, year, etc.)
 - **Value Scoring**: Compare vehicle values within clusters and meta-clusters
-- **Security Features**: 
-  - Input validation and sanitization
-  - Rate limiting
-  - CORS protection
-  - XSS prevention
-  - Secure headers
 
 ## Technical Stack
 
