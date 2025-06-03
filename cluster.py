@@ -15,12 +15,23 @@ from sklearn.metrics import silhouette_score
 N_KMEANS_CLUSTERS = 1200 # 'k' in k-means or number of clusters
 N_META_CLUSTERS = 20 # 'k' when meta clustering
 
-#index of each numeric, and categoric column
-numeric_columns = [4,15,88,89,114,115,116]
-categoric_columns = [0,1,2,3,5,6,7,8,9,10,11,12,13,14,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,
-                     38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,
-                     71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,
-                     105,106,107,108,109,110,111,112,113]
+numeric_feature_names = [
+    'Year',
+    'Engine HP',
+    'Engine Cylinders',
+    'Number of Doors',
+    'highway MPG',
+    'city mpg',
+    'Popularity'
+]
+# Categorical features: all others except 'Market Category' (which will be handled as multi-label)
+categoric_feature_names = [
+    'Engine Fuel Type',
+    'Transmission Type',
+    'Driven_Wheels',
+    'Vehicle Size',
+    'Vehicle Style',
+]
 
 #pull vehicle data excluding Make, Model, and MSRP
 def extract_data(filename):
@@ -35,7 +46,7 @@ def extract_data(filename):
                              'Transmission Type': row['Transmission Type'],
                              'Driven_Wheels': row['Driven_Wheels'],
                              'Number of Doors': int(row['Number of Doors']),
-                             'Market Category': row['Market Category'],
+                             'Market Category': [cat.strip() for cat in row['Market Category'].split(',')] if row['Market Category'] else [],
                              'Vehicle Size': row['Vehicle Size'],
                              'Vehicle Style': row['Vehicle Style'],
                              'highway MPG': int(row['highway MPG']),
@@ -59,7 +70,7 @@ def extract_all_data(filename):
                              'Transmission Type': row['Transmission Type'],
                              'Driven_Wheels': row['Driven_Wheels'],
                              'Number of Doors': int(row['Number of Doors']),
-                             'Market Category': row['Market Category'],
+                             'Market Category': [cat.strip() for cat in row['Market Category'].split(',')] if row['Market Category'] else [],
                              'Vehicle Size': row['Vehicle Size'],
                              'Vehicle Style': row['Vehicle Style'],
                              'highway MPG': int(row['highway MPG']),
@@ -76,11 +87,15 @@ def normalize_and_fit(data):
     X_temp = dict_vectorizer.fit_transform(data)
     all_feature_names = dict_vectorizer.get_feature_names_out()
 
+    # Find indices for numeric and categorical features
+    numeric_indices = [i for i, name in enumerate(all_feature_names) if name in numeric_feature_names]
+    categoric_indices = [i for i, name in enumerate(all_feature_names) if name not in numeric_feature_names]
+
     #prepare standard scaler for numeric columns
     transformer = ColumnTransformer(
         transformers=[
-            ("num", StandardScaler(), numeric_columns),
-            ("cat", "passthrough", categoric_columns)
+            ("num", StandardScaler(), numeric_indices),
+            ("cat", "passthrough", categoric_indices)
         ],
         remainder="drop"
     )
@@ -93,9 +108,7 @@ def normalize_and_fit(data):
 
     #appy changes to data via the pipeline
     prepped_data = pipeline.fit_transform(data)
-    numeric_feature_names = [all_feature_names[i] for i in numeric_columns]
-    categorical_feature_names = [all_feature_names[i] for i in categoric_columns]
-    final_feature_names = numeric_feature_names + categorical_feature_names
+    final_feature_names = [all_feature_names[i] for i in numeric_indices + categoric_indices]
 
     return prepped_data, final_feature_names
 
